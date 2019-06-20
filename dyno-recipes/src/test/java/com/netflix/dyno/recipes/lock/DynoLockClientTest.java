@@ -25,10 +25,10 @@ public abstract class DynoLockClientTest {
     Host host;
     TokenMapSupplierImpl tokenMapSupplier;
     DynoLockClient dynoLockClient;
+    String resource = "testResource";
 
     @Test
-    public void testExtendLock() {
-        String resource = "testResource";
+    public void testExtendLockAndCheckResourceExists() {
         long v = dynoLockClient.acquireLock(resource, 500);
         Assert.assertTrue("Acquire lock did not succeed in time", v > 0);
         Assert.assertEquals(1, dynoLockClient.getLockedResources().size());
@@ -40,8 +40,38 @@ public abstract class DynoLockClientTest {
     }
 
     @Test
+    public void testReleaseLock() {
+        long v = dynoLockClient.acquireLock(resource, 100);
+        Assert.assertTrue("Acquire lock did not succeed in time", v > 0);
+        dynoLockClient.releaseLock(resource);
+        v = dynoLockClient.checkLock(resource);
+        Assert.assertTrue("Release lock failed",v == 0);
+    }
+
+    @Test
+    public void testExtendLockFailsIfTooLate() throws InterruptedException {
+        long v = dynoLockClient.acquireLock(resource, 100);
+        Assert.assertTrue("Acquire lock did not succeed in time", v > 0);
+        Assert.assertEquals(1, dynoLockClient.getLockedResources().size());
+        Thread.sleep(100);
+        long ev = dynoLockClient.extendLock(resource, 1000);
+        Assert.assertTrue("Extend lock did not extend the lock", ev == 0);
+        Assert.assertEquals(0, dynoLockClient.getLockedResources().size());
+    }
+
+    @Test
+    public void testCheckLock() {
+        long v = dynoLockClient.acquireLock(resource, 5000);
+        Assert.assertTrue("Acquire lock did not succeed in time", v > 0);
+        Assert.assertEquals(1, dynoLockClient.getLockedResources().size());
+        v = dynoLockClient.checkLock(resource);
+        Assert.assertTrue("Check lock failed for acquired lock",v > 0);
+        dynoLockClient.releaseLock(resource);
+        Assert.assertTrue("Check lock failed for acquired lock", dynoLockClient.checkLock(resource) == 0);
+    }
+
+    @Test
     public void testLockClient() {
-        String resource = "testResource";
         long v = dynoLockClient.acquireLock(resource, 1000);
         Assert.assertTrue("Acquire lock did not succeed in time", v > 0);
         Assert.assertEquals(1, dynoLockClient.getLockedResources().size());
@@ -52,7 +82,6 @@ public abstract class DynoLockClientTest {
     @Test
     public void testLockClientConcurrent() {
         ScheduledExecutorService ses = Executors.newScheduledThreadPool(3);
-        String resource = "testResource";
         List<Long> ttls = Arrays.asList(new Long[]{100L, 50L, 25L});
         Collections.shuffle(ttls);
         ConcurrentLinkedDeque<Long> ttlQueue = new ConcurrentLinkedDeque<>(ttls);

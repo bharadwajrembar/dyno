@@ -35,7 +35,8 @@ public class CheckAndRunHost extends CommandHost<Object> {
         return getConnection().execute(new BaseKeyOperation<Object>(randomKey, OpName.EVAL) {
             @Override
             public Object execute(Jedis client, ConnectionContext state) {
-                return client.eval(command, 1, resource, randomKey);
+                Object result = client.eval(command, 1, resource, randomKey);
+                return result;
             }
         });
     }

@@ -37,7 +37,7 @@ public class ExtendHost extends CommandHost<LockResource> {
     public OperationResult<LockResource> get() {
         return getConnection().execute(new BaseKeyOperation<Object>(randomKey, OpName.EVAL) {
             @Override
-            public Object execute(Jedis client, ConnectionContext state) {
+            public LockResource execute(Jedis client, ConnectionContext state) {
                 if(randomKey == null) {
                     throw new IllegalStateException("Cannot extend lock with null value for key");
                 }

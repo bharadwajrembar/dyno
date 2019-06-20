@@ -164,7 +164,7 @@ public class DynoLockClient {
                     .map(host -> new CheckAndRunHost(host, pool, "pttl", resource, resourceKeyMap.get(resource)))
                     .forEach(checkAndRunHost -> CompletableFuture.supplyAsync(checkAndRunHost, service)
                             .thenAccept(r -> {
-                                String result = r.toString();
+                                String result = r.getResult().toString();
                                 if(result.equals("0") || result.equals("-2")) {
                                     logger.info("Lock not present on host");
                                 } else {
