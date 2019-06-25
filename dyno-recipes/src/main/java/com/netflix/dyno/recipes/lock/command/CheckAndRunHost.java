@@ -1,4 +1,4 @@
-package com.netflix.dyno.recipes.lock;
+package com.netflix.dyno.recipes.lock.command;
 
 import com.netflix.dyno.connectionpool.Connection;
 import com.netflix.dyno.connectionpool.ConnectionContext;
@@ -9,6 +9,9 @@ import com.netflix.dyno.jedis.OpName;
 import com.netflix.dyno.jedis.operation.BaseKeyOperation;
 import redis.clients.jedis.Jedis;
 
+/**
+ * Runs a command against the host and is used to remove the lock and checking the ttl on the resource
+ */
 public class CheckAndRunHost extends CommandHost<Object> {
 
     private static final String cmdScript = " if redis.call(\"get\",KEYS[1]) == ARGV[1] then\n" +
@@ -37,6 +40,9 @@ public class CheckAndRunHost extends CommandHost<Object> {
         OperationResult result = connection.execute(new BaseKeyOperation<Object>(randomKey, OpName.EVAL) {
             @Override
             public Object execute(Jedis client, ConnectionContext state) {
+                if (randomKey == null) {
+                    throw new IllegalStateException("Cannot extend lock with null value for key");
+                }
                 Object result = client.eval(command, 1, resource, randomKey);
                 return result;
             }

@@ -16,12 +16,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * This class deterministically returns a list of hosts which will be used for voting. We use the TokenRange to get the
+ * same set of hosts from all clients.
+ */
 public class VotingHostsFromTokenRange implements VotingHostsSelector {
 
     private final TokenMapSupplier tokenMapSupplier;
     private final HostSupplier hostSupplier;
     private final CircularList<Host> votingHosts = new CircularList<>(new ArrayList<>());
-    // TODO: raghu Might be easier as a FP?
     private final int MIN_VOTING_SIZE = 1;
     private final int MAX_VOTING_SIZE = 5;
     private final int effectiveVotingSize;
@@ -37,19 +40,27 @@ public class VotingHostsFromTokenRange implements VotingHostsSelector {
     @Override
     public CircularList<Host> getVotingHosts() {
         if (votingHosts.getSize() == 0) {
+            if(effectiveVotingSize % 2 == 0) {
+                throw new IllegalStateException("Cannot do voting with even number of nodes for voting");
+            }
             List<HostToken> allHostTokens = tokenMapSupplier.getTokens(ImmutableSet.copyOf(hostSupplier.getHosts()));
             if (allHostTokens.size() < MIN_VOTING_SIZE) {
                 throw new IllegalStateException(String.format("Cannot perform voting with less than %d nodes", MIN_VOTING_SIZE));
             }
+            // Total number of hosts present per rack
             Map<String, Long> numHostsPerRack = allHostTokens.stream().map(ht -> ht.getHost().getRack()).collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
             AtomicInteger numHostsRequired = new AtomicInteger(effectiveVotingSize);
+            // Map to keep track of number of hosts to take for voting from this rack
             Map<String, Integer> numHosts = new HashMap<>();
+            // Sort racks to get the same order
             List<String> racks = numHostsPerRack.keySet().stream().sorted(Comparator.comparing(String::toString)).collect(Collectors.toList());
             for(String rack: racks) {
-                if(numHostsRequired.get() <= 0) {
-                    numHosts.put(rack, 0);
-                    continue;
-                }
+//                // Already have required number of hosts for voting. Do not take any more.
+//                if(numHostsRequired.get() <= 0) {
+//                    numHosts.put(rack, 0);
+//                    continue;
+//                }
+                // Need more hosts take as as many as you can from this rack.
                 int v = (int) Math.min(numHostsRequired.get(), numHostsPerRack.get(rack));
                 numHostsRequired.addAndGet(-v);
                 numHosts.put(rack, v);
@@ -57,7 +68,7 @@ public class VotingHostsFromTokenRange implements VotingHostsSelector {
             }
             Map<String, List<HostToken>> rackToHostToken = allHostTokens.stream()
                     .collect(Collectors.groupingBy(ht -> ht.getHost().getRack()));
-            allHostTokens.sort(HostToken::compareTo);
+            // Get the final list of voting hosts
             List<Host> finalVotingHosts = rackToHostToken.entrySet().stream()
                     .sorted(Comparator.comparing(Map.Entry::getKey))
                     .flatMap(e -> {

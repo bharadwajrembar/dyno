@@ -39,6 +39,10 @@ public interface ConnectionPoolConfiguration {
         THRESHOLD
     }
 
+    /**
+     * Should connections in this pool connect to the datastore directly?
+     * @return
+     */
     boolean isConnectToDatastore();
 
     boolean isFallbackEnabled();

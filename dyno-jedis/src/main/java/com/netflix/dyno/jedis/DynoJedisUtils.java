@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Singleton
 public class DynoJedisUtils {
@@ -117,7 +118,6 @@ public class DynoJedisUtils {
         // Find the hosts from host supplier
         List<Host> hosts = (List<Host>) hostSupplier.getHosts();
         Collections.sort(hosts);
-        // Convert the arraylist to set
 
         // Take the token map supplier (aka the token topology from
         // Dynomite)
@@ -139,26 +139,22 @@ public class DynoJedisUtils {
         }
 
         String hashtag = hostTokens.get(0).getHost().getHashtag();
-        short numHosts = 0;
-        // Update inner state with the host tokens.
-        for (HostToken hToken : hostTokens) {
+        Stream<String> htStream = hostTokens.stream().map(hostToken -> hostToken.getHost().getHashtag());
+
+        if (hashtag == null) {
+            htStream.filter(ht -> ht != null).findAny().ifPresent(ignore -> {
+                logger.error("Hashtag mismatch across hosts");
+                throw new RuntimeException("Hashtags are different across hosts");
+            });
+        } else {
             /**
              * Checking hashtag consistency from all Dynomite hosts. If
              * hashtags are not consistent, we need to throw an exception.
              */
-            String hashtagNew = hToken.getHost().getHashtag();
-
-            if (hashtag != null && !hashtag.equals(hashtagNew)) {
+            htStream.filter(ht -> !hashtag.equals(ht)).findAny().ifPresent(ignore -> {
                 logger.error("Hashtag mismatch across hosts");
                 throw new RuntimeException("Hashtags are different across hosts");
-            } // addressing case hashtag = null, hashtag = {} ...
-            else if (numHosts > 0 && hashtag == null && hashtagNew != null) {
-                logger.error("Hashtag mismatch across hosts");
-                throw new RuntimeException("Hashtags are different across hosts");
-
-            }
-            hashtag = hashtagNew;
-            numHosts++;
+            });
         }
 
         if (hashtag != null) {

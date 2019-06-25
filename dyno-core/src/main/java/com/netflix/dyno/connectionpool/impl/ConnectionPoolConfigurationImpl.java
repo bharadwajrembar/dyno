@@ -450,11 +450,6 @@ public class ConnectionPoolConfigurationImpl implements ConnectionPoolConfigurat
         return this;
     }
 
-    public ConnectionPoolConfigurationImpl withConnectToDatastore(boolean condition) {
-        connectToDatastore = condition;
-        return this;
-    }
-
     public static class ErrorRateMonitorConfigImpl implements ErrorRateMonitorConfig {
 
         int window = 20;

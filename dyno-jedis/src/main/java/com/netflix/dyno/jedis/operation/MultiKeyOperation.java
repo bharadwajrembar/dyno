@@ -45,6 +45,10 @@ public abstract class MultiKeyOperation<T> implements Operation<Jedis, T> {
         return op.name();
     }
 
+    /**
+     * Sends back only the first key of the multi key operation.
+     * @return
+     */
     @Override
     public String getStringKey() {
         return (this.keys != null) ? this.keys.get(0) : null;

@@ -1,4 +1,4 @@
-package com.netflix.dyno.recipes.lock;
+package com.netflix.dyno.recipes.lock.command;
 
 import com.netflix.dyno.connectionpool.Connection;
 import com.netflix.dyno.connectionpool.ConnectionContext;
@@ -7,11 +7,15 @@ import com.netflix.dyno.connectionpool.Host;
 import com.netflix.dyno.connectionpool.OperationResult;
 import com.netflix.dyno.jedis.OpName;
 import com.netflix.dyno.jedis.operation.BaseKeyOperation;
+import com.netflix.dyno.recipes.lock.LockResource;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.params.SetParams;
 
 import java.util.concurrent.CountDownLatch;
 
+/**
+ * This class is used to acquire the lock on a host with a resource.
+ */
 public class LockHost extends CommandHost<LockResource> {
 
     private final String value;

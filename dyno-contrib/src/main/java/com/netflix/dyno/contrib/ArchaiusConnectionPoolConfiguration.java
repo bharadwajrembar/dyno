@@ -73,7 +73,7 @@ public class ArchaiusConnectionPoolConfiguration extends ConnectionPoolConfigura
         configPublisherConfig = DynamicPropertyFactory.getInstance().getStringProperty(propertyPrefix + ".config.publisher.address", super.getConfigurationPublisherConfig());
         failOnStartupIfNoHosts = DynamicPropertyFactory.getInstance().getBooleanProperty(propertyPrefix + ".config.startup.failIfNoHosts", super.getFailOnStartupIfNoHosts());
         compressionThreshold = DynamicPropertyFactory.getInstance().getIntProperty(propertyPrefix + ".config.compressionThreshold", super.getValueCompressionThreshold());
-        lockVotingSize = DynamicPropertyFactory.getInstance().getIntProperty(propertyPrefix + ".config.lock.votinSize", super.getLockVotingSize());
+        lockVotingSize = DynamicPropertyFactory.getInstance().getIntProperty(propertyPrefix + ".config.lock.votingSize", super.getLockVotingSize());
 
         loadBalanceStrategy = parseLBStrategy(propertyPrefix);
         errorRateConfig = parseErrorRateMonitorConfig(propertyPrefix);

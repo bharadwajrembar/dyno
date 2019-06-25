@@ -132,8 +132,10 @@ public class ConsulHostsSupplier implements HostSupplier {
                         Host host = new HostBuilder().setHostname(hostName)
                                 .setIpAddress(hostName)
                                 .setPort(info.getService().getPort())
-                                .setRack(rack).setDatacenter(String.valueOf(metaData.get("datacenter")))
-                                .setStatus(status).createHost();
+                                .setRack(rack)
+                                .setDatacenter(String.valueOf(metaData.get("datacenter")))
+                                .setStatus(status)
+                                .createHost();
                         return host;
                     }
                 }));
