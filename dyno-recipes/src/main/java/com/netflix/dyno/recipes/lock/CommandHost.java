@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 public abstract class CommandHost<T> implements Supplier<OperationResult<T>> {
     private final Host host;
     private final ConnectionPool pool;
+    private Connection connection;
 
     public CommandHost(Host host, ConnectionPool pool) {
         this.host = host;
@@ -21,5 +22,10 @@ public abstract class CommandHost<T> implements Supplier<OperationResult<T>> {
     public Connection getConnection() {
         HostConnectionPool hostPool = pool.getHostPool(host);
         return hostPool.borrowConnection(pool.getConfiguration().getMaxTimeoutWhenExhausted(), TimeUnit.MILLISECONDS);
+    }
+
+    public void cleanConnection(Connection connection) {
+        connection.getContext().reset();
+        connection.getParentConnectionPool().returnConnection(connection);
     }
 }

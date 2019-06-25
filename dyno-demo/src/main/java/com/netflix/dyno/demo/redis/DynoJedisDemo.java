@@ -1360,11 +1360,13 @@ public class DynoJedisDemo {
 
     private void runLockTest() throws InterruptedException {
         String resourceName = "testResource";
-        long value = dynoLockClient.acquireLock(resourceName, 10_000);
-        if (value > 0) {
+        long ttl = 5_000;
+        boolean value = dynoLockClient.acquireLock(resourceName, ttl, (resource) -> logger.info("Extension failed"));
+        if (value) {
             logger.info("Acquired lock on resource {} for {} ms ", resourceName, value);
         }
         dynoLockClient.logLocks();
+        Thread.sleep(100_000);
         dynoLockClient.releaseLock(resourceName);
     }
 }

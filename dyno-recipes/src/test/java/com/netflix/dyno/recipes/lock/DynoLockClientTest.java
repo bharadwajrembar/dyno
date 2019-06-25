@@ -4,6 +4,7 @@ import com.netflix.dyno.connectionpool.Host;
 import com.netflix.dyno.connectionpool.TokenMapSupplier;
 import com.netflix.dyno.connectionpool.impl.lb.HostToken;
 import com.netflix.dyno.recipes.util.Tuple;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -14,9 +15,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -26,6 +27,23 @@ public abstract class DynoLockClientTest {
     TokenMapSupplierImpl tokenMapSupplier;
     DynoLockClient dynoLockClient;
     String resource = "testResource";
+
+    public abstract DynoLockClient constructDynoLockClient();
+
+    @After
+    public void releaseLock() {
+        dynoLockClient.releaseLock(resource);
+    }
+
+    @Test
+    public void testAcquireLockWithExtension() throws InterruptedException {
+        boolean acquireResult = dynoLockClient.acquireLock(resource, 500, (rsc) -> {});
+        Assert.assertTrue("Failed to acquire lock on resource", acquireResult);
+        Thread.sleep(3000);
+        Assert.assertTrue(dynoLockClient.checkLock(resource) > 0);
+        dynoLockClient.releaseLock(resource);
+        Assert.assertTrue(dynoLockClient.checkLock(resource) == 0);
+    }
 
     @Test
     public void testExtendLockAndCheckResourceExists() {
@@ -55,7 +73,7 @@ public abstract class DynoLockClientTest {
         Assert.assertEquals(1, dynoLockClient.getLockedResources().size());
         Thread.sleep(100);
         long ev = dynoLockClient.extendLock(resource, 1000);
-        Assert.assertTrue("Extend lock did not extend the lock", ev == 0);
+        Assert.assertTrue("Extend lock extended the lock even when late", ev == 0);
         Assert.assertEquals(0, dynoLockClient.getLockedResources().size());
     }
 
@@ -81,14 +99,16 @@ public abstract class DynoLockClientTest {
 
     @Test
     public void testLockClientConcurrent() {
-        ScheduledExecutorService ses = Executors.newScheduledThreadPool(3);
-        List<Long> ttls = Arrays.asList(new Long[]{100L, 50L, 25L});
+        DynoLockClient[] cs = new DynoLockClient[] {constructDynoLockClient(), constructDynoLockClient(), constructDynoLockClient()};
+        CopyOnWriteArrayList<DynoLockClient> clients = new CopyOnWriteArrayList<>(cs);
+        List<Long> ttls = Arrays.asList(new Long[]{1000L, 500L, 250L});
+        AtomicInteger count = new AtomicInteger(3);
         Collections.shuffle(ttls);
         ConcurrentLinkedDeque<Long> ttlQueue = new ConcurrentLinkedDeque<>(ttls);
         List<Long> resultList = Collections.synchronizedList(new ArrayList());
         Supplier<Tuple<Long, Long>> acquireLock = () -> {
             long ttl = ttlQueue.poll();
-            long value = dynoLockClient.acquireLock(resource, ttl);
+            long value = clients.get(count.decrementAndGet()).acquireLock(resource, ttl);
             resultList.add(value);
             return new Tuple<>(ttl, value);
         };
@@ -107,7 +127,7 @@ public abstract class DynoLockClientTest {
         for(Long r: resultList) {
             if(r > 0) {
                 if(lock) {
-                    Assert.fail("Lock did not work as expected");
+                    Assert.fail("Lock did not work as expected " + Arrays.toString(resultList.toArray()));
                 }
                 lock = true;
             }

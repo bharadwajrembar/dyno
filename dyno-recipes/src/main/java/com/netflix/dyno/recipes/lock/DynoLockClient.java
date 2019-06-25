@@ -20,6 +20,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class DynoLockClient {
 
@@ -46,6 +49,7 @@ public class DynoLockClient {
     private TimeUnit timeoutUnit;
     private long timeout;
     private final ConcurrentHashMap<String, String> resourceKeyMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> resourceExecutorMap = new ConcurrentHashMap<>();
 
     public DynoLockClient(String appName, String clusterName, ConnectionPool pool, HostSupplier hostSupplier, TokenMapSupplier tokenMapSupplier,
                           ConnectionPoolConfiguration cpConfig, VotingHostsSelector votingHostsSelector, long timeout, TimeUnit unit) {
@@ -57,7 +61,7 @@ public class DynoLockClient {
         this.pool = pool;
         this.votingHostsSelector = votingHostsSelector;
         // Threads for locking and unlocking
-        this.service = Executors.newFixedThreadPool(votingHostsSelector.getVotingSize() * 2);
+        this.service = Executors.newCachedThreadPool();
         this.quorum = votingHostsSelector.getVotingSize() / 2 + 1;
         this.timeout = timeout;
         this.timeoutUnit = unit;
@@ -81,7 +85,7 @@ public class DynoLockClient {
     }
 
     public void releaseLock(String resource) {
-        if(!checkResourceExists(resource)){
+        if (!checkResourceExists(resource)) {
             logger.info("No lock held on {}", resource);
             return;
         }
@@ -97,7 +101,7 @@ public class DynoLockClient {
         } catch (InterruptedException e) {
             logger.info("Interrupted while releasing the lock for resource {}", resource);
         }
-        if(latchValue) {
+        if (latchValue) {
             logger.info("Released lock on {}", resource);
         } else {
             logger.info("Timed out before we could release the lock");
@@ -105,12 +109,45 @@ public class DynoLockClient {
         resourceKeyMap.remove(resource);
     }
 
+    private TimerTask getExtensionTask(Timer runJob, String resource, long ttlMS, Consumer<String> extensionFailed) {
+        return new TimerTask() {
+            @Override
+            public void run() {
+                long extendedValue = extendLock(resource, ttlMS);
+                if (extendedValue > 0) {
+                    logger.info("Extended lock on {} for {} MS", resource, ttlMS);
+                    TimerTask task = getExtensionTask(runJob, resource, ttlMS, extensionFailed);
+                    runJob.schedule(task, extendedValue/2);
+                    return;
+                }
+                extensionFailed.accept(resource);
+            }
+        };
+    }
+
+    public boolean acquireLock(String resource, long ttlMS, Consumer<String> failure) {
+        return acquireLockWithExtension(resource, ttlMS, (r) -> {
+            releaseLock(r);
+            failure.accept(r);
+        });
+    }
+
+    private boolean acquireLockWithExtension(String resource, long ttlMS, Consumer<String> extensionFailedCallback) {
+        long acquireResult = acquireLock(resource, ttlMS);
+        if (acquireResult > 0) {
+            Timer runJob = new Timer(resource, true);
+            runJob.schedule(getExtensionTask(runJob, resource, ttlMS, extensionFailedCallback), acquireResult/2);
+            return true;
+        }
+        return false;
+    }
+
     private long runLockHost(String resource, long ttlMS, boolean extend) {
         long startTime = Instant.now().toEpochMilli();
         long drift = Math.round(ttlMS * CLOCK_DRIFT) + 2;
         LockResource lockResource = new LockResource(resource, ttlMS);
         CountDownLatch latch = new CountDownLatch(quorum);
-        if(extend) {
+        if (extend) {
             votingHostsSelector.getVotingHosts().getEntireList().stream()
                     .map(host -> new ExtendHost(host, pool, lockResource, latch, resourceKeyMap.get(resource)))
                     .forEach(lH -> CompletableFuture.supplyAsync(lH, service));
@@ -136,7 +173,7 @@ public class DynoLockClient {
     }
 
     boolean checkResourceExists(String resource) {
-        if(!resourceKeyMap.containsKey(resource)) {
+        if (!resourceKeyMap.containsKey(resource)) {
             logger.info("No lock held on {}", resource);
             return false;
         } else {
@@ -154,7 +191,7 @@ public class DynoLockClient {
     }
 
     public long checkLock(String resource) {
-        if(!checkResourceExists(resource)) {
+        if (!checkResourceExists(resource)) {
             return 0;
         } else {
             long startTime = Instant.now().toEpochMilli();
@@ -165,7 +202,7 @@ public class DynoLockClient {
                     .forEach(checkAndRunHost -> CompletableFuture.supplyAsync(checkAndRunHost, service)
                             .thenAccept(r -> {
                                 String result = r.getResult().toString();
-                                if(result.equals("0") || result.equals("-2")) {
+                                if (result.equals("0") || result.equals("-2")) {
                                     logger.info("Lock not present on host");
                                 } else {
                                     resultTtls.add(Long.valueOf(result));
@@ -174,7 +211,7 @@ public class DynoLockClient {
                             })
                     );
             boolean latchValue = awaitLatch(latch, resource);
-            if(latchValue) {
+            if (latchValue) {
                 long timeElapsed = Instant.now().toEpochMilli() - startTime;
                 logger.info("Checked lock on {}", resource);
                 return Collections.min(resultTtls) - timeElapsed;
@@ -186,7 +223,7 @@ public class DynoLockClient {
     }
 
     public long extendLock(String resource, long ttlMS) {
-        if(!checkResourceExists(resource)) {
+        if (!checkResourceExists(resource)) {
             logger.info("Could not extend lock since its already released");
             return 0;
         } else {

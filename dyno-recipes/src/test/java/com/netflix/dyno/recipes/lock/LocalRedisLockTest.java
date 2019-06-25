@@ -3,7 +3,6 @@ package com.netflix.dyno.recipes.lock;
 import com.netflix.dyno.connectionpool.Host;
 import com.netflix.dyno.connectionpool.HostBuilder;
 import com.netflix.dyno.connectionpool.HostSupplier;
-import com.netflix.dyno.connectionpool.TokenMapSupplier;
 import com.netflix.dyno.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import org.junit.After;
 import org.junit.Assume;
@@ -28,7 +27,7 @@ public class LocalRedisLockTest extends DynoLockClientTest {
         Assume.assumeFalse(System.getProperty("os.name").toLowerCase().startsWith("win"));
         host = new HostBuilder().setHostname("localhost").setDatastorePort(REDIS_PORT).setPort(REDIS_PORT).setRack(REDIS_RACK).setStatus(Host.Status.Up).createHost();
         tokenMapSupplier = new TokenMapSupplierImpl(host);
-        dynoLockClient = constructDynoLockClient(tokenMapSupplier, () -> Collections.singletonList(host));
+        dynoLockClient = constructDynoLockClient();
     }
 
     @After
@@ -38,8 +37,8 @@ public class LocalRedisLockTest extends DynoLockClientTest {
         }
     }
 
-    DynoLockClient constructDynoLockClient(TokenMapSupplier tokenMapSupplier,
-                                           HostSupplier hostSupplier) {
+    public DynoLockClient constructDynoLockClient() {
+        HostSupplier hostSupplier = () -> Collections.singletonList(host);
 
         final ConnectionPoolConfigurationImpl connectionPoolConfiguration =
                 new ConnectionPoolConfigurationImpl(REDIS_RACK);

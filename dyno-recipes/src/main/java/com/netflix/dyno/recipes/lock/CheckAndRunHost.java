@@ -1,5 +1,6 @@
 package com.netflix.dyno.recipes.lock;
 
+import com.netflix.dyno.connectionpool.Connection;
 import com.netflix.dyno.connectionpool.ConnectionContext;
 import com.netflix.dyno.connectionpool.ConnectionPool;
 import com.netflix.dyno.connectionpool.Host;
@@ -32,12 +33,15 @@ public class CheckAndRunHost extends CommandHost<Object> {
 
     @Override
     public OperationResult<Object> get() {
-        return getConnection().execute(new BaseKeyOperation<Object>(randomKey, OpName.EVAL) {
+        Connection connection = getConnection();
+        OperationResult result = connection.execute(new BaseKeyOperation<Object>(randomKey, OpName.EVAL) {
             @Override
             public Object execute(Jedis client, ConnectionContext state) {
                 Object result = client.eval(command, 1, resource, randomKey);
                 return result;
             }
         });
+        cleanConnection(connection);
+        return result;
     }
 }
