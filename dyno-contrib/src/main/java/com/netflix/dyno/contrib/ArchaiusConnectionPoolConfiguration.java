@@ -173,6 +173,11 @@ public class ArchaiusConnectionPoolConfiguration extends ConnectionPoolConfigura
         return dualWritePercentage.get();
     }
 
+    @Override
+    public int getLockVotingSize() {
+        return lockVotingSize.get();
+    }
+
     public void setIsDualWriteEnabled(DynamicBooleanProperty booleanProperty) {
         this.isDualWriteEnabled = booleanProperty;
     }
