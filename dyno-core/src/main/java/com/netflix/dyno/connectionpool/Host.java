@@ -130,6 +130,10 @@ public class Host implements Comparable<Host> {
         return password;
     }
 
+    public Status getStatus() {
+        return status;
+    }
+
     public InetSocketAddress getSocketAddress() {
         return socketAddress;
     }
@@ -184,5 +188,16 @@ public class Host implements Comparable<Host> {
         return "Host [hostname=" + hostname + ", ipAddress=" + ipAddress + ", port=" + port + ", rack: "
                 + rack + ", datacenter: " + datacenter + ", status: " + status.name() + ", hashtag="
                 + hashtag + ", password=" + (Objects.nonNull(password) ? "masked" : "null") + "]";
+    }
+
+    public static Host clone(Host host) {
+        return new HostBuilder().setHostname(host.getHostName())
+                        .setIpAddress(host.getIpAddress()).setPort(host.getPort())
+                        .setSecurePort(host.getSecurePort())
+                        .setRack(host.getRack())
+                        .setDatastorePort(host.getDatastorePort())
+                        .setDatacenter(host.getDatacenter()).setStatus(host.getStatus())
+                        .setHashtag(host.getHashtag())
+                        .setPassword(host.getPassword()).createHost();
     }
 }

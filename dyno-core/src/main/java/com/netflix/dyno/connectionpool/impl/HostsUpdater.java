@@ -16,7 +16,6 @@
 package com.netflix.dyno.connectionpool.impl;
 
 import com.netflix.dyno.connectionpool.Host;
-import com.netflix.dyno.connectionpool.HostBuilder;
 import com.netflix.dyno.connectionpool.HostSupplier;
 import com.netflix.dyno.connectionpool.TokenMapSupplier;
 import com.netflix.dyno.connectionpool.exception.DynoException;
@@ -114,19 +113,12 @@ public class HostsUpdater {
             if (hostFromHostSupplier.isUp()) {
                 Host hostFromTokenMapSupplier = allHostSetFromTokenMapSupplier.get(hostFromHostSupplier);
 
-                hostsUpFromHostSupplier.add(new HostBuilder().setHostname(hostFromHostSupplier.getHostName())
-                        .setIpAddress(hostFromHostSupplier.getIpAddress()).setPort(hostFromTokenMapSupplier.getPort())
-                        .setSecurePort(hostFromTokenMapSupplier.getSecurePort())
-                        .setRack(hostFromTokenMapSupplier.getRack())
-                        .setDatastorePort(hostFromTokenMapSupplier.getDatastorePort())
-                        .setDatacenter(hostFromTokenMapSupplier.getDatacenter()).setStatus(Host.Status.Up)
-                        .setHashtag(hostFromTokenMapSupplier.getHashtag())
-                        .setPassword(hostFromTokenMapSupplier.getPassword()).createHost());
+                hostsUpFromHostSupplier.add(Host.clone(hostFromTokenMapSupplier).setStatus(Host.Status.Up));
                 allHostSetFromTokenMapSupplier.remove(hostFromTokenMapSupplier);
             } else {
                 Host hostFromTokenMapSupplier = allHostSetFromTokenMapSupplier.get(hostFromHostSupplier);
 
-                hostsDownFromHostSupplier.add(new HostBuilder().setHostname(hostFromHostSupplier.getHostName()).setIpAddress(hostFromHostSupplier.getIpAddress()).setPort(hostFromTokenMapSupplier.getPort()).setSecurePort(hostFromTokenMapSupplier.getSecurePort()).setRack(hostFromTokenMapSupplier.getRack()).setDatacenter(hostFromTokenMapSupplier.getDatacenter()).setStatus(Host.Status.Down).setHashtag(hostFromTokenMapSupplier.getHashtag()).setPassword(hostFromTokenMapSupplier.getPassword()).createHost());
+                hostsDownFromHostSupplier.add(Host.clone(hostFromTokenMapSupplier).setStatus(Host.Status.Down));
                 allHostSetFromTokenMapSupplier.remove(hostFromTokenMapSupplier);
             }
         }
@@ -134,7 +126,7 @@ public class HostsUpdater {
         // if a node is down, it might be absent in hostSupplier but has its presence in TokenMapSupplier.
         // Add that host to the down list here.
         for (Host h : allHostSetFromTokenMapSupplier.keySet()) {
-            hostsDownFromHostSupplier.add(new HostBuilder().setHostname(h.getHostName()).setIpAddress(h.getIpAddress()).setPort(h.getPort()).setSecurePort(h.getSecurePort()).setRack(h.getRack()).setDatacenter(h.getDatacenter()).setStatus(Host.Status.Down).setHashtag(h.getHashtag()).createHost());
+            hostsDownFromHostSupplier.add(Host.clone(h).setStatus(Host.Status.Down));
 
         }
 
